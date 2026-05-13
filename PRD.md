@@ -134,3 +134,13 @@ Implementation:
 4. Screenshot upload + vision API for team entry
 5. Screenshot upload for battle screen / opponent identification
 6. Polish: sprites, keyboard shortcuts, score breakdown UI, "add a new game" docs
+
+---
+
+## Changelog
+
+- **2026-05-13**: Clarified that stat entry is **manual actual in-game stats** (no EV/IV fields) — OCR pre-fills as suggestions. Dex base stats are defaults only.
+- **2026-05-13**: Abilities in scoring = **type-nullifying only** (Levitate, Flash Fire, Water Absorb, Volt Absorb, Sap Sipper, Storm Drain, Lightning Rod, Motor Drive, Dry Skin). No stat-boosting ability modeling in v1.
+- **2026-05-13**: Opponent unknown moveset assumption = **best STAB move per type** from learnset.
+- **2026-05-13**: Unbound data source = `nMckenryan/Borrius-Pokedex-Scraper` (503 Borrius regional Pokémon) + supplement files for non-regional species (Serperior, Swanna, Lunala). The Borrius dex ≠ all obtainable Pokémon in Unbound.
+- **2026-05-13**: `corrections.json` referenced in PRD lives in localStorage (key: `dexCorrections:<gameId>`), not as a real file — browser app can't write to disk.
