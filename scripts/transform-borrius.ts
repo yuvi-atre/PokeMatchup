@@ -4,7 +4,7 @@
  * Usage:
  *   1. Download borrius_pokedex_data.json from:
  *      https://github.com/nMckenryan/Borrius-Pokedex-Scraper/raw/main/scraperData/borrius_pokedex_data.json
- *   2. Place it in scripts/borrius_pokedex_data.json
+ *   2. Place it at scripts/borrius_pokedex_data.json
  *   3. Run: npx tsx scripts/transform-borrius.ts
  *
  * Outputs:
@@ -19,7 +19,6 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 
-// All 18 valid type names (Gen 6 chart).
 const VALID_TYPES = new Set([
   'Normal','Fire','Water','Electric','Grass','Ice','Fighting','Poison',
   'Ground','Flying','Psychic','Bug','Rock','Ghost','Dragon','Dark','Steel','Fairy',
@@ -27,67 +26,56 @@ const VALID_TYPES = new Set([
 
 const VALID_CATEGORIES = new Set(['Physical', 'Special', 'Status']);
 
-// Normalize a type string from the scraper to our TypeName format.
 function normalizeType(raw: string): string | null {
+  if (!raw) return null;
   const t = raw.trim();
-  // Title-case it.
   const normalized = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
-  // Handle "Sp. Atk" style misreads (shouldn't appear but guard anyway).
   return VALID_TYPES.has(normalized) ? normalized : null;
 }
 
 function normalizeCategory(raw: string): string {
-  const c = raw.trim();
+  const c = (raw ?? '').trim();
   if (VALID_CATEGORIES.has(c)) return c;
-  // Scraper sometimes returns lowercase.
   const titled = c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
   return VALID_CATEGORIES.has(titled) ? titled : 'Status';
 }
 
-function parsePower(raw: string | number | undefined): number | null {
+function parsePower(raw: string | number | undefined | null): number | null {
   if (raw === undefined || raw === null || raw === '-' || raw === '') return null;
   const n = Number(raw);
   return isNaN(n) || n <= 0 ? null : n;
 }
 
-function parseAccuracy(raw: string | number | undefined): number | null {
+function parseAccuracy(raw: string | number | undefined | null): number | null {
   if (raw === undefined || raw === null || raw === '-' || raw === '') return null;
-  // Accuracy may be stored as "100" or 100.
-  const s = String(raw).replace('%', '');
-  const n = Number(s);
+  const n = Number(String(raw).replace('%', ''));
   return isNaN(n) ? null : n;
 }
 
+// The scraper uses "level-up", "machine", "level-up&machine", "tutor", etc.
 function normalizeMethod(raw: string): 'level-up' | 'machine' | 'tutor' {
-  const r = raw.toLowerCase();
+  const r = (raw ?? '').toLowerCase();
   if (r.includes('level')) return 'level-up';
   if (r.includes('machine') || r.includes('tm') || r.includes('hm')) return 'machine';
   return 'tutor';
 }
 
-function normalizeAbilitySlot(raw: string | number): 1 | 2 | 'hidden' {
-  if (raw === 1 || raw === '1') return 1;
-  if (raw === 2 || raw === '2') return 2;
-  const s = String(raw).toLowerCase();
-  if (s.includes('hidden') || s.includes('h')) return 'hidden';
-  return 1;
-}
-
 // ------------------------------------------------------------------
+// Raw types matching the actual JSON structure.
 
 interface RawMove {
   name: string;
   type: string;
   category: string;
-  power: string | number;
-  accuracy: string | number;
-  level_learned_at: number;
+  power: string | number | null;
+  accuracy: string | number | null;
+  level_learned_at: string | number;  // stored as string in this file
   method: string;
 }
 
 interface RawAbility {
   ability_name: string;
-  slot: string | number;
+  slot: number;
 }
 
 interface RawStats {
@@ -100,7 +88,8 @@ interface RawStats {
 }
 
 interface RawPokemon {
-  id: number;
+  id: number;          // Borrius dex number
+  national_id: number; // national dex number (used for sprite URL)
   name: string;
   types: string[];
   stats: RawStats;
@@ -108,20 +97,41 @@ interface RawPokemon {
   moves: RawMove[];
 }
 
+// The file is: [ { info: {...}, pokemon: RawPokemon[] } ]
+interface RawFile {
+  info: unknown;
+  pokemon: RawPokemon[];
+}
+
 // ------------------------------------------------------------------
 
 const inputPath = path.join(__dirname, 'borrius_pokedex_data.json');
 if (!fs.existsSync(inputPath)) {
   console.error(`Error: ${inputPath} not found.`);
-  console.error('Download it from:');
+  console.error('Download from:');
   console.error('  https://github.com/nMckenryan/Borrius-Pokedex-Scraper/raw/main/scraperData/borrius_pokedex_data.json');
   process.exit(1);
 }
 
-const raw: RawPokemon[] = JSON.parse(fs.readFileSync(inputPath, 'utf-8'));
+// Supplement files for Pokémon/moves not in the Borrius regional dex.
+const supplementPath = path.join(__dirname, 'supplement-pokemon.json');
+const supplementMovesPath = path.join(__dirname, 'supplement-moves.json');
+
+// Pre-load move supplements so we can use correct data instead of placeholders.
+interface SupplementMove { name: string; type: string; category: string; power: number | null; accuracy: number | null }
+const supplementMovesData: SupplementMove[] = fs.existsSync(supplementMovesPath)
+  ? JSON.parse(fs.readFileSync(supplementMovesPath, 'utf-8'))
+  : [];
+const supplementMovesMap = new Map<string, SupplementMove>(
+  supplementMovesData.map((m) => [m.name.toLowerCase(), m]),
+);
+
+const fileContents: RawFile[] = JSON.parse(fs.readFileSync(inputPath, 'utf-8'));
+
+// The file wraps everything in a single-element array.
+const raw: RawPokemon[] = fileContents[0]?.pokemon ?? [];
 console.log(`Read ${raw.length} Pokémon from borrius_pokedex_data.json`);
 
-// Collect all unique moves across the full dex.
 const movesMap = new Map<string, {
   name: string;
   type: string;
@@ -135,25 +145,25 @@ let skippedPokemon = 0;
 let skippedMoves = 0;
 
 for (const p of raw) {
-  // Validate and map types.
+  // Validate types.
   const types: string[] = [];
   for (const t of p.types ?? []) {
     const nt = normalizeType(t);
     if (nt) types.push(nt);
   }
   if (types.length === 0) {
-    console.warn(`  Skipping ${p.name} — no valid types`);
+    console.warn(`  Skipping ${p.name ?? 'unknown'} — no valid types`);
     skippedPokemon++;
     continue;
   }
 
-  // Map abilities.
-  const abilities = (p.abilities ?? []).map((a) => ({
+  // Map abilities. The scraper sets slot=1 for all; assign slots by position.
+  const abilities = (p.abilities ?? []).slice(0, 3).map((a, idx) => ({
     name: a.ability_name?.trim() ?? 'Unknown',
-    slot: normalizeAbilitySlot(a.slot),
+    slot: idx === 0 ? 1 : idx === 1 ? 2 : 'hidden',
   }));
 
-  // Map learnset, building the movesMap as we go.
+  // Map moves, building movesMap as we go.
   const learnset: unknown[] = [];
   const seenMoveNames = new Set<string>();
 
@@ -178,13 +188,14 @@ for (const p of raw) {
       });
     }
 
-    // Deduplicate learnset entries by name (some Pokémon list a move via multiple methods).
+    // Deduplicate by name (some moves appear for multiple methods).
     if (!seenMoveNames.has(key)) {
       seenMoveNames.add(key);
       const method = normalizeMethod(m.method ?? 'level-up');
+      const levelAt = Number(m.level_learned_at);
       const entry: Record<string, unknown> = { moveName, method };
-      if (method === 'level-up' && m.level_learned_at > 0) {
-        entry.levelLearnedAt = m.level_learned_at;
+      if (method === 'level-up' && !isNaN(levelAt) && levelAt > 0) {
+        entry.levelLearnedAt = levelAt;
       }
       learnset.push(entry);
     }
@@ -192,6 +203,7 @@ for (const p of raw) {
 
   pokemonOut.push({
     id: p.id,
+    nationalId: p.national_id,  // kept for sprite URL lookup
     name: p.name,
     types: types.slice(0, 2),
     baseStats: {
@@ -205,6 +217,34 @@ for (const p of raw) {
     abilities,
     learnset,
   });
+}
+
+// Merge supplements (Pokémon not in the Borrius regional dex).
+// The supplement file is already in our internal format — just append.
+if (fs.existsSync(supplementPath)) {
+  const supplements: unknown[] = JSON.parse(fs.readFileSync(supplementPath, 'utf-8'));
+  const existingNames = new Set(pokemonOut.map((p) => (p as { name: string }).name.toLowerCase()));
+  let added = 0;
+  for (const s of supplements) {
+    const sp = s as { name: string; learnset?: Array<{ moveName: string }> };
+    if (!existingNames.has(sp.name.toLowerCase())) {
+      pokemonOut.push(s);
+      existingNames.add(sp.name.toLowerCase());
+      added++;
+      // Register supplement moves that aren't already in the main dex.
+      for (const entry of sp.learnset ?? []) {
+        const key = entry.moveName.toLowerCase();
+        if (!movesMap.has(key)) {
+          const supp = supplementMovesMap.get(key);
+          movesMap.set(key, supp
+            ? { name: supp.name, type: supp.type, category: supp.category, power: supp.power, accuracy: supp.accuracy }
+            : { name: entry.moveName, type: 'Normal', category: 'Status', power: null, accuracy: null }
+          );
+        }
+      }
+    }
+  }
+  console.log(`Merged ${added} supplement Pokémon from supplement-pokemon.json`);
 }
 
 const movesOut = Array.from(movesMap.values()).sort((a, b) =>

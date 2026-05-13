@@ -49,6 +49,7 @@ export interface LearnsetEntry {
 
 export interface PokemonData {
   id: number;
+  nationalId?: number;
   name: string;
   types: [TypeName, TypeName?];
   baseStats: BaseStats;

@@ -1,0 +1,78 @@
+[
+  {
+    "id": 9001,
+    "nationalId": 497,
+    "name": "serperior",
+    "types": ["Grass"],
+    "baseStats": {
+      "hp": 75, "attack": 75, "defense": 95,
+      "specialAttack": 75, "specialDefense": 95, "speed": 113
+    },
+    "abilities": [
+      { "name": "Overgrow", "slot": 1 },
+      { "name": "Contrary", "slot": "hidden" }
+    ],
+    "learnset": [
+      { "moveName": "Leaf Blade", "method": "level-up", "levelLearnedAt": 34 },
+      { "moveName": "Coil", "method": "level-up", "levelLearnedAt": 44 },
+      { "moveName": "Giga Drain", "method": "machine" },
+      { "moveName": "Dragon Pulse", "method": "machine" },
+      { "moveName": "Leech Seed", "method": "level-up", "levelLearnedAt": 1 },
+      { "moveName": "Glare", "method": "level-up", "levelLearnedAt": 1 },
+      { "moveName": "Leaf Storm", "method": "level-up", "levelLearnedAt": 55 },
+      { "moveName": "Aerial Ace", "method": "machine" },
+      { "moveName": "Return", "method": "machine" }
+    ]
+  },
+  {
+    "id": 9002,
+    "nationalId": 581,
+    "name": "swanna",
+    "types": ["Water", "Flying"],
+    "baseStats": {
+      "hp": 75, "attack": 87, "defense": 63,
+      "specialAttack": 87, "specialDefense": 63, "speed": 98
+    },
+    "abilities": [
+      { "name": "Keen Eye", "slot": 1 },
+      { "name": "Big Pecks", "slot": 2 },
+      { "name": "Hydration", "slot": "hidden" }
+    ],
+    "learnset": [
+      { "moveName": "Surf", "method": "machine" },
+      { "moveName": "Scald", "method": "machine" },
+      { "moveName": "Hurricane", "method": "level-up", "levelLearnedAt": 50 },
+      { "moveName": "Air Slash", "method": "level-up", "levelLearnedAt": 35 },
+      { "moveName": "Brave Bird", "method": "level-up", "levelLearnedAt": 62 },
+      { "moveName": "Roost", "method": "machine" },
+      { "moveName": "Ice Beam", "method": "machine" },
+      { "moveName": "Aerial Ace", "method": "machine" }
+    ]
+  },
+  {
+    "id": 9003,
+    "nationalId": 792,
+    "name": "lunala",
+    "types": ["Psychic", "Ghost"],
+    "baseStats": {
+      "hp": 137, "attack": 113, "defense": 89,
+      "specialAttack": 137, "specialDefense": 107, "speed": 97
+    },
+    "abilities": [
+      { "name": "Shadow Shield", "slot": 1 }
+    ],
+    "learnset": [
+      { "moveName": "Shadow Ball", "method": "level-up", "levelLearnedAt": 1 },
+      { "moveName": "Moongeist Beam", "method": "level-up", "levelLearnedAt": 62 },
+      { "moveName": "Psyshock", "method": "machine" },
+      { "moveName": "Psychic", "method": "machine" },
+      { "moveName": "Ice Beam", "method": "machine" },
+      { "moveName": "Calm Mind", "method": "machine" },
+      { "moveName": "Roost", "method": "machine" },
+      { "moveName": "Focus Blast", "method": "machine" },
+      { "moveName": "Dream Eater", "method": "machine" },
+      { "moveName": "Hypnosis", "method": "level-up", "levelLearnedAt": 1 },
+      { "moveName": "Night Shade", "method": "level-up", "levelLearnedAt": 1 }
+    ]
+  }
+]

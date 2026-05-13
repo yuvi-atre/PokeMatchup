@@ -1,0 +1,6 @@
+[
+  { "name": "Moongeist Beam", "type": "Ghost", "category": "Special", "power": 100, "accuracy": 100 },
+  { "name": "Sunsteel Strike", "type": "Steel", "category": "Physical", "power": 100, "accuracy": 100 },
+  { "name": "Spectral Thief", "type": "Ghost", "category": "Physical", "power": 90, "accuracy": 100 },
+  { "name": "Soul-Stealing 7-Star Strike", "type": "Ghost", "category": "Physical", "power": 195, "accuracy": null }
+]

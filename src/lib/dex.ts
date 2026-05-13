@@ -31,7 +31,7 @@ export interface Dex {
     defenderTypes: [TypeName, TypeName?],
     defenderAbility?: string | null,
   ): number;
-  getSpriteUrl(species: string, speciesId?: number): string;
+  getSpriteUrl(species: string): string;
 }
 
 export async function createDex(gameId: string): Promise<Dex> {
@@ -102,13 +102,14 @@ export async function createDex(gameId: string): Promise<Dex> {
       return eff1 * eff2;
     },
 
-    getSpriteUrl(species: string, speciesId?: number): string {
-      // Local sprites take priority (added in Step 6).
-      // Fall back to PokeAPI sprites using the species id.
-      if (speciesId != null) {
-        return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${speciesId}.png`;
+    getSpriteUrl(species: string): string {
+      // Use nationalId from PokemonData if available (matches PokeAPI sprite numbering).
+      const poke = pokemonByName.get(species.toLowerCase());
+      const nationalId = poke?.nationalId;
+      if (nationalId != null) {
+        return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${nationalId}.png`;
       }
-      // Fallback: name-based lookup (less reliable for non-vanilla species).
+      // Name-based fallback for species without a national id.
       const slug = species.toLowerCase().replace(/[^a-z0-9]/g, '-');
       return `https://img.pokemondb.net/sprites/x-y/normal/${slug}.png`;
     },
