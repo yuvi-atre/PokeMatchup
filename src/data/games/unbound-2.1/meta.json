@@ -1,0 +1,10 @@
+{
+  "id": "unbound-2.1",
+  "name": "Pokémon Unbound 2.1",
+  "generation": 8,
+  "mechanics": {
+    "hasPhysSpecSplit": true,
+    "hasFairy": true,
+    "typeChartGen": 6
+  }
+}
