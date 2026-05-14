@@ -129,7 +129,7 @@ To add a move not in the Borrius dex: edit `scripts/supplement-moves.json` and r
 ## Build step status
 
 - [x] Step 1: Scaffold + game profile system + Unbound data layer
-- [ ] Step 2: Team builder (manual entry)
+- [x] Step 2: Team builder (manual entry)
 - [ ] Step 3: Opponent selector + scoring + recommendations + corrections
 - [ ] Step 4: Screenshot OCR for team entry
 - [ ] Step 5: Screenshot OCR for battle screen
