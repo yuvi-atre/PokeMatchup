@@ -1,131 +1,135 @@
 # PokeMatchup — Handoff
 
-_Last updated: 2026-05-14. Overwrite this file each session._
+_Last updated: 2026-05-24. Overwrite this file each session._
 
 ---
 
 ## What got done this session
 
-**Step 2 fully complete (team builder):**
+**Step 3 fully complete (opponent selector + scoring + recommendations):**
 
 ### New files
 | File | Purpose |
 |------|---------|
-| `src/hooks/useTeam.ts` | 6-slot team state, Zod-validated localStorage, `team:<gameId>` key |
-| `src/components/shared/Spinner.tsx` | Loading spinner (sm/md/lg) |
-| `src/components/shared/ErrorBanner.tsx` | Red error banner with optional dismiss |
-| `src/components/shared/Modal.tsx` | Portal-based modal, Escape closes, backdrop click closes |
-| `src/components/shared/SearchableDropdown.tsx` | Fuzzy-search dropdown, full keyboard nav (↑↓ Enter Esc) |
-| `src/components/team/StatInput.tsx` | Labeled number input for a single stat (1–999) |
-| `src/components/team/MoveSlotInput.tsx` | Move dropdown, species learnset moves listed first |
-| `src/components/team/MemberForm.tsx` | Full single-Pokémon form (species, level, stats, ability, item, 4 moves) |
-| `src/components/team/TeamMemberCard.tsx` | Compact card showing species, types, level, top 2 moves |
-| `src/components/team/TeamEditor.tsx` | Modal with 6 tab buttons at top, one MemberForm at a time, Prev/Next nav |
-| `src/components/team/TeamPanel.tsx` | 6-slot card grid + "Edit Team" button + "Clear all" |
+| `src/lib/damage.ts` | Pure scoring engine: `computeMatchup`, `getDefaultOpponentMoves`, `ScoringConfig`, `DEFAULT_SCORING_CONFIG` |
+| `src/hooks/useDexCorrections.ts` | Persistent dex corrections in localStorage (`dexCorrections:<gameId>`) |
+| `src/hooks/useOpponent.ts` | Session opponent state + override management; computes `resolved` via 3-layer pipeline |
+| `src/hooks/useMatchup.ts` | `useMemo` wrapper over `computeMatchup` |
+| `src/components/opponent/OpponentPanel.tsx` | Opponent species/level/type/move UI with override indicators |
+| `src/components/recommendation/ScoreBreakdown.tsx` | Expandable calc detail (off/def/speed/score formula) |
+| `src/components/recommendation/RecommendationPanel.tsx` | Ranked matchup list; top pick highlighted in blue |
 
 ### Modified files
-- `src/App.tsx` — swapped dex-loaded stub for `<TeamPanel>` + opponent placeholder
-- `CLAUDE.md` — marked Step 2 complete
-
-### Key decisions locked in this session
-- **TeamEditor is one-at-a-time**: slot tabs at top, one MemberForm visible at a time, Prev/Next arrows at bottom.
-- **Move auto-fill trigger = species selection**: when you pick a species, moves auto-fill to the last 4 level-up moves learned at or below the current level. Changing level after that does NOT reset moves (user has already customized them).
-- **`tsconfig.json` change**: removed `baseUrl: "."` and `scripts` from `include` (intentional, avoids TS error). Flag if `@/*` path alias starts misbehaving — Vite resolves it independently so it's fine at runtime.
+- `src/App.tsx` — wires all Step 3 hooks; two-column layout (opponent | recommendations)
+- `CLAUDE.md` — marked Step 3 complete
 
 ---
 
 ## Current build state
 
-**Steps 1 + 2 ✅ complete.**
+**Steps 1, 2, 3 ✅ complete.**
 
 - `npx tsc --noEmit` passes clean
 - `npm run build` succeeds
 - `npm run dev` serves at `localhost:5173`
 
-**UI smoke test to do manually:**
-1. Open `localhost:5173`
-2. Click any empty slot card → TeamEditor opens on that slot
-3. Search for "Serperior" in Species dropdown → stats fill from dex, moves auto-fill at level
-4. Switch to Slot 2 via tab → fill in Swanna
-5. Continue for all 6 (Serperior, Swanna, Magmortar, Garchomp, Aggron, Lunala)
-6. Refresh → team persists
-7. Switch game (if another profile exists) → team clears
+**Manual smoke test to do:**
+1. Build team (Serperior/Swanna/Magmortar/Garchomp/Aggron/Lunala with real levels + stats)
+2. Search "Garchomp" as opponent → types fill as Dragon/Ground
+3. Recommendations panel shows ranked matchup: Aggron/Serperior near top, Magmortar near bottom (Fire weak to Ground)
+4. Set opponent level → scores recalculate (opponent stat estimates update)
+5. Override type 2 from Ground to Water → rankings shift
+6. "Reset to dex defaults" → types snap back to Dragon/Ground
+7. Clear opponent → panel returns to "Select an opponent" state
+8. Refresh → opponent is gone, team persists
 
 ---
 
 ## Files with uncommitted changes
 
-All new/modified files are uncommitted. `git status` will show them all dirty.
+All Step 3 files are uncommitted. Run git add + commit to push.
 
 ---
 
-## Open questions (ask before assuming)
+## Scoring model (locked in `damage.ts`)
 
-None from this session. All design decisions above were confirmed by user.
+```typescript
+DEFAULT_SCORING_CONFIG = { W_OFF: 1.0, W_DEF: 0.8, SPEED_BONUS: 20, ONESHOT_PENALTY: 60 }
+
+offensiveScore = best(estimateDamage(level, power, myAtk/SpA, oppDef/SpD, eff, stab))
+defensiveScore = worst(estimateDamage(oppLevel, power, oppAtk/SpA, myDef/SpD, eff, stab))
+finalScore = W_OFF*off - W_DEF*def + (faster ? SPEED_BONUS : 0) - (oneShot ? ONESHOT_PENALTY : 0)
+
+// estimateDamage: ((2*level/5+2) * power * (atk/def) / 50 + 2) * eff * stab
+// Opponent stats: simplified formula ((2*base*level)/100 + 5), no EVs/IVs/nature
+```
+
+Tweak weights by editing `DEFAULT_SCORING_CONFIG` in `damage.ts`.
+
+---
+
+## Correction / override pipeline (locked in)
+
+```
+base dex types → DexCorrection (localStorage) → SessionOverride (React state) → ResolvedOpponent
+```
+
+- `useDexCorrections(gameId)` — persistent, survives refresh
+- `useOpponent(getCorrection)` — session only, cleared on opponent change
+- Resolution lives in `useOpponent`'s `useMemo`
+
+---
+
+## Open questions
+
+None. All design decisions are locked per HANDOFF + PRD.
 
 ---
 
 ## Known issues / sketchy code
 
-- **`tsconfig.json` missing `baseUrl`**: `paths` entry `@/*` without `baseUrl` is technically non-standard. Works at runtime because Vite handles it, but `tsc --noEmit` in standalone mode may not resolve `@/*` imports correctly in the future. Watch for any TS import errors on `@/` paths.
-- **`TeamEditor` doesn't reset `activeSlot` when re-opened on a new slot.** `initialSlot` prop only sets the initial state; if the user opens slot 3, closes, then clicks slot 5 from `TeamPanel`, the editor will correctly open on slot 5 because `TeamPanel` passes `editingSlot` as `initialSlot`. But since `useState` ignores prop changes after mount, the editor only picks up the new `initialSlot` if it was unmounted (which it is, since the Modal is conditionally rendered). This is correct behavior — verify it still works.
-- **Supplement Pokémon learnsets are stubs** (Serperior, Swanna, Lunala) — only approximations in `scripts/supplement-pokemon.json`. Move auto-fill will give roughly-correct results but won't match every exact level-up move.
+- **Opponent move display in OpponentPanel**: estimated moves show as italic hint text below the dropdown. If the user sets an explicit move, the hint disappears. This is slightly awkward — consider showing estimated moves as a greyed-out value inside the dropdown placeholder in a future polish pass.
+- **No "Save dex correction" button yet**: `useDexCorrections` is wired but the OpponentPanel only shows session overrides. A "This species has wrong types in the dex → save permanently" button needs a small UI addition (a link/button below the types row that calls `addCorrection`). Defer to Step 6 polish.
+- **Supplement Pokémon learnset stubs** (Serperior, Swanna, Lunala) — scoring uses approximated learnsets. Opponent estimation will be slightly off for these species.
 
 ---
 
-## Next task: Step 3 — Opponent selector + scoring + recommendations
+## Next task: Step 4 — Screenshot OCR for team entry
 
-### Files to build (in order):
+### Files to build:
 
-#### 1. `src/lib/damage.ts`
+#### 1. `src/lib/ocr.ts`
 ```typescript
-// Pure scoring, no React, no localStorage.
-// ScoringConfig with weights: W_OFF, W_DEF, SPEED_BONUS, ONESHOT_PENALTY
-// computeMatchup(team, resolved, dex, config?) -> MatchupScore[]
-// getDefaultMoves(species: PokemonData, dex: Dex) -> MoveData[]
-//   — best STAB move per type from learnset (used when opponent moves are unknown)
+// POST image (base64) to Anthropic API with structured JSON prompt
+// Returns OCRSummaryResult (species, level, stats×6, moves×4, ability, heldItem)
+// Each field is ConfidenceField<T> — low confidence → yellow highlight
+// API key from import.meta.env.VITE_ANTHROPIC_API_KEY
+// Model: claude-sonnet-4-5 or newer per CLAUDE.md
 ```
 
-#### 2. `src/hooks/useOpponent.ts`
+#### 2. `src/hooks/useScreenshot.ts`
 ```typescript
-// Session state: OpponentState + SessionOverride (cleared when opponent changes)
-// setOpponentByName(name: string, dex: Dex) — auto-fills types from dex
-// applyOverride(override: Partial<SessionOverride>) — merges into override state
-// resetOverrides() — clears session overrides
-// resolvedOpponent: ResolvedOpponent | null
+// FileReader → base64
+// Calls ocr.ts
+// Returns { uploadScreenshot, ocrResult, isProcessing, ocrError }
 ```
 
-#### 3. `src/hooks/useDexCorrections.ts`
-```typescript
-// localStorage key: `dexCorrections:<gameId>`
-// addCorrection(c: DexCorrection) / removeCorrection(species: string)
-// getCorrection(species: string): DexCorrection | undefined
-```
+#### 3. Team entry integration
+- Add "Upload screenshot" button to `MemberForm` (or a new `ScreenshotUploadButton` component)
+- On OCR complete: pre-fill all fields with `ConfidenceField` values
+- Low-confidence fields get yellow border highlight (so user knows to double-check)
+- Editing any pre-filled field promotes it to `'high'` confidence
 
-#### 4. `src/hooks/useMatchup.ts`
-```typescript
-// useMemo over team + resolvedOpponent + dex -> MatchupScore[]
-// Calls damage.computeMatchup
-```
-
-#### 5. Opponent components
-```
-src/components/opponent/
-  OpponentPanel.tsx       — species SearchableDropdown, shows resolved types/level
-  OverrideField.tsx       — pencil icon to edit any field inline
-src/components/recommendation/
-  RecommendationPanel.tsx — ranked list of MatchupScore[]
-  ScoreBreakdown.tsx      — expandable calc detail per member
-```
-
-### Verify Step 3 works:
-- Select Garchomp as opponent → see Serperior at bottom, Aggron/Magmortar near top
-- Override opponent type → recommendations recompute instantly
-- Refresh → opponent state is gone (session only), but team persists
+### Verify Step 4 works:
+- Upload a real Pokémon summary screenshot
+- Fields auto-fill; low-confidence ones are highlighted yellow
+- Edit a field → yellow goes away
+- Confirm → member saved as normal
 
 ---
 
 ## Things said in chat not yet in code
 
-- **OCR alternatives**: user is thinking ahead. For Step 4, keep Anthropic as primary. Tesseract.js (free, in-browser) worth considering as fallback for plain-text fields. Google Cloud Vision and Gemini Vision are also viable alternatives.
-- **Keyboard shortcuts** (Ctrl+K opponent search, Tab/Enter nav) — deferred to Step 6.
+- **OCR alternatives for Step 4**: Anthropic primary. Tesseract.js (in-browser, free) for plain-text fallback. Google Cloud Vision / Gemini Vision as alternatives.
+- **Keyboard shortcuts** (Ctrl+K for opponent search, Tab/Enter nav) — Step 6.
+- **Sprites** — Step 6 (getSpriteUrl is implemented but not used in UI yet).
